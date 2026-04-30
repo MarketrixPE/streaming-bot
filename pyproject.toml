@@ -1,0 +1,197 @@
+[project]
+name = "streaming-bot"
+version = "0.1.0"
+description = "Browser automation framework con Clean Architecture, async, fingerprinting coherente y observabilidad"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "streaming-bot contributors" }]
+license = { text = "MIT" }
+keywords = ["automation", "playwright", "clean-architecture", "asyncio"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+dependencies = [
+    "playwright>=1.49.0",
+    "playwright-stealth>=1.0.6",
+    "httpx>=0.28.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+    "typer>=0.15.0",
+    "rich>=13.9.0",
+    "structlog>=24.4.0",
+    "cryptography>=44.0.0",
+    "prometheus-client>=0.21.0",
+    "tenacity>=9.0.0",
+    "anyio>=4.7.0",
+    "uvloop>=0.21.0; sys_platform != 'win32'",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30.0",
+    "alembic>=1.14.0",
+    "aiosqlite>=0.20.0",
+    "pyserial-asyncio>=0.6",
+    "aiohttp>=3.11.0",
+    "camoufox[geoip]>=0.4.0",
+    "browserforge>=1.2.0",
+    "selectolax>=0.3.27",
+    "imap-tools>=1.10.0",
+    "python-ulid>=3.0.0",
+    "redis>=5.2.0",
+    "aiosmtplib>=3.0.2",
+    "pandas>=2.2.0",
+    "openpyxl>=3.1.5",
+    "streamlit>=1.40.0",
+    "plotly>=5.24.0,<6.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8.4",
+    "mypy>=1.13.0",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+    "types-pytz",
+]
+
+[project.scripts]
+streaming-bot = "streaming_bot.presentation.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/streaming_bot"]
+
+# ---------------------------------------------------------------------------
+# Ruff: linter + formatter unificado (reemplaza black, isort, flake8, pylint)
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+extend-exclude = [".venv", "build", "dist"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",      # pycodestyle + pyflakes
+    "I",                # isort
+    "N",                # pep8-naming
+    "UP",               # pyupgrade
+    "B",                # bugbear
+    "C4",               # comprehensions
+    "SIM",              # simplify
+    "RET",              # return
+    "ARG",              # unused arguments
+    "PTH",              # pathlib
+    "ERA",              # eradicate (commented-out code)
+    "PL",               # pylint
+    "RUF",              # ruff-specific
+    "ASYNC",            # async best practices
+    "S",                # bandit (security)
+    "TID",              # tidy imports
+]
+ignore = [
+    "S101",    # assert (lo permitimos en tests)
+    "PLR0913", # too many args (constructor injection)
+    "UP042",   # StrEnum requiere 3.11; mantenemos compat con Python clásico
+    "PLR2004", # magic values
+    "B008",    # default factory call (común con typer.Option)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "PLR2004", "ARG", "ASYNC230", "PTH123"]
+"src/streaming_bot/presentation/cli.py" = ["B008"]
+# Las paginas Streamlit son scripts top-level: muchos statements y prints
+# narrativos forman parte natural del UI, sin clases ni helpers reusables.
+"src/streaming_bot/presentation/dashboard/pages/*.py" = [
+    "PLR0915", # too-many-statements (UI lineal)
+    "PLR0912", # too-many-branches
+    "PLR0913", # too-many-args
+    "E501",    # line too long en strings markdown
+]
+"src/streaming_bot/presentation/dashboard/app.py" = ["PLR0915"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+# ---------------------------------------------------------------------------
+# Mypy strict: bloquea Any implícito, requires return types, etc.
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_any_unimported = true
+disallow_any_explicit = false
+plugins = ["pydantic.mypy"]
+mypy_path = ["src"]
+namespace_packages = true
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = [
+    "playwright_stealth.*",
+    "camoufox.*",
+    "browserforge.*",
+    "selectolax.*",
+    "imap_tools.*",
+    "serial_asyncio.*",
+    "aiosmtplib.*",
+    "streamlit.*",
+    "plotly.*",
+    "plotly.express",
+    "plotly.graph_objects",
+    "openpyxl.*",
+]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=streaming_bot",
+    "--cov-report=term-missing",
+    "--cov-report=xml",
+    "--import-mode=importlib",
+]
+pythonpath = ["src"]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "unit: tests unitarios (sin I/O)",
+    "integration: tests de integración (Playwright real)",
+    "slow: tests lentos",
+]
+
+[tool.coverage.run]
+source = ["src/streaming_bot"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "@(abc\\.)?abstractmethod",
+]
+
+[dependency-groups]
+dev = [
+    "pandas-stubs>=3.0.0.260204",
+    "types-openpyxl>=3.1.5.20260408",
+]

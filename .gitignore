@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+*.egg
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# uv
+.uv/
+
+# Tests / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+
+# Mypy / Ruff
+.mypy_cache/
+.ruff_cache/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Secretos y datos sensibles (NUNCA commitear)
+.env
+.env.local
+.env.*.local
+accounts.txt
+accounts.encrypted
+proxies.txt
+credentials/
+secrets/
+
+# Estado de sesiones (cookies, localStorage)
+sessions/
+storage_state/
+
+# Artefactos de runtime (screenshots, traces)
+artifacts/
+logs/
+*.log
+
+# Playwright
+playwright-report/
+test-results/
+.playwright/
+
+# Docker volumes locales
+data/
+prometheus_data/
+grafana_data/
