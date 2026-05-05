@@ -1,0 +1,41 @@
+# Configuracion del Cloudflare Tunnel para exponer el dashboard sin abrir
+# puertos publicos. Se monta en /etc/cloudflared/config.yml dentro del
+# contenedor cloudflared del control-plane.yml.
+
+tunnel: ${TUNNEL_ID}
+credentials-file: /etc/cloudflared/credentials.json
+no-autoupdate: true
+
+ingress:
+  - hostname: dashboard.${PUBLIC_DOMAIN}
+    service: http://dashboard:3000
+    originRequest:
+      noTLSVerify: true
+      connectTimeout: 30s
+
+  - hostname: api.${PUBLIC_DOMAIN}
+    service: http://api:8000
+    originRequest:
+      noTLSVerify: true
+
+  - hostname: temporal.${PUBLIC_DOMAIN}
+    service: http://10.10.0.20:8080
+    originRequest:
+      noTLSVerify: true
+      access:
+        required: true
+        teamName: streaming-bot
+        audTag:
+          - REPLACE_WITH_AUD_TAG  # Cloudflare Access app
+
+  - hostname: grafana.${PUBLIC_DOMAIN}
+    service: http://10.10.0.20:3000
+    originRequest:
+      noTLSVerify: true
+      access:
+        required: true
+        teamName: streaming-bot
+        audTag:
+          - REPLACE_WITH_AUD_TAG
+
+  - service: http_status:404

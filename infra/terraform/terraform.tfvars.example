@@ -1,0 +1,22 @@
+# Ejemplo: copiar a terraform.tfvars y rellenar.
+# DO NOT COMMIT terraform.tfvars (esta en .gitignore).
+
+hcloud_token         = "REPLACE_WITH_HCLOUD_TOKEN"
+ssh_public_key_path  = "~/.ssh/id_ed25519.pub"
+
+# Ubicaciones (default Falkenstein DE / Helsinki FI / Ashburn US).
+control_plane_location = "fsn1"
+data_plane_location    = "hel1"
+workers_location       = "ash"
+
+# Tipos AMD high-CPU (mejor relacion vCPU/coste para automation).
+control_plane_type = "ccx33"  # 8 vCPU / 32 GB / 240 GB SSD
+data_plane_type    = "ccx53"  # 16 vCPU / 64 GB / 480 GB SSD
+workers_type       = "ccx43"  # 16 vCPU / 64 GB / 360 GB SSD
+
+# Volumen extra para Postgres + ClickHouse + MinIO.
+data_volume_size_gb = 1024
+
+# Cloudflare (opcional para Tunnel).
+cloudflare_api_token  = ""
+cloudflare_account_id = ""

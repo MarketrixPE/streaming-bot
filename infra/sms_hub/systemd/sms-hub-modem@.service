@@ -1,0 +1,20 @@
+[Unit]
+Description=SMS hub modem daemon (port %i)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+EnvironmentFile=/opt/streaming-bot/infra/sms_hub/.env
+Environment=SERIAL_PORT=/dev/%i
+ExecStart=/usr/bin/python3 /opt/streaming-bot/infra/sms_hub/daemon/sms_modem_daemon.py
+Restart=on-failure
+RestartSec=5
+User=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

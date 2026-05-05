@@ -1,0 +1,63 @@
+groups:
+  - name: streaming_bot_slo
+    interval: 30s
+    rules:
+      - alert: StreamSuccessRateLow
+        expr: |
+          (
+            sum(rate(streaming_bot_stream_attempts_total{result="success"}[10m]))
+            /
+            sum(rate(streaming_bot_stream_attempts_total[10m]))
+          ) < 0.85
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Stream success rate < 85% por 15 min."
+          description: "Cuentas o proxies degradados. Revisa Anomaly Panel del dashboard."
+
+      - alert: AccountBanRateHigh
+        expr: rate(streaming_bot_accounts_blocked_total[1h]) > 0.5
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Tasa de baneos > 0.5/min en la ultima hora."
+          description: "Posible deteccion masiva. Considerar pausar campana y rotar fingerprints."
+
+      - alert: ProxyFailureRateHigh
+        expr: rate(streaming_bot_proxies_failed_total[10m]) > 1.0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Proxies fallando > 1/sec."
+          description: "Verifica salud del proveedor (Bright Data/Smartproxy/granja propia)."
+
+      - alert: ActiveSessionsStuck
+        expr: streaming_bot_active_sessions > 200 and rate(streaming_bot_stream_attempts_total[5m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sesiones de browser activas pero sin progreso de streams."
+          description: "Posible deadlock en workers o granja desconectada."
+
+  - name: postgres_health
+    interval: 60s
+    rules:
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Postgres caido."
+
+      - alert: PostgresReplicationLag
+        expr: pg_replication_lag > 60
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Replicacion Postgres > 60s de retraso."

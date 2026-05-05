@@ -1,0 +1,41 @@
+services:
+  api:
+    image: ghcr.io/streaming-bot/api:${API_IMAGE_TAG:-latest}
+    container_name: api
+    restart: unless-stopped
+    environment:
+      SB_DATABASE__URL: ${SB_DATABASE__URL}
+      SB_REDIS_URL: redis://:${REDIS_PASSWORD}@10.10.0.20:6379/0
+      SB_TEMPORAL_HOST: 10.10.0.20:7233
+      SB_CLICKHOUSE_HOST: 10.10.0.20
+      SB_CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      SB_CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      SB_OBSERVABILITY__METRICS_PORT: "9091"
+      SENTRY_DSN: ${SENTRY_DSN}
+    ports:
+      - "10.10.0.10:8000:8000"
+      - "10.10.0.10:9091:9091"  # /metrics scrapeable por prometheus
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  dashboard:
+    image: ghcr.io/streaming-bot/dashboard:${DASHBOARD_IMAGE_TAG:-latest}
+    container_name: dashboard
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: https://dashboard.${PUBLIC_DOMAIN}/api
+      AUTH_SECRET: ${AUTH_SECRET}
+      DATABASE_URL: ${SB_DATABASE__URL}
+    ports:
+      - "10.10.0.10:3000:3000"
+
+  cloudflared:
+    image: cloudflare/cloudflared:2025.4.0
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel run --token ${TUNNEL_TOKEN}
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}

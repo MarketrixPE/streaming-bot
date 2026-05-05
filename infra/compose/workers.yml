@@ -1,0 +1,39 @@
+services:
+  worker:
+    image: ghcr.io/streaming-bot/worker:${WORKER_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      SB_DATABASE__URL: ${SB_DATABASE__URL}
+      SB_REDIS_URL: redis://:${REDIS_PASSWORD}@10.10.0.20:6379/0
+      SB_TEMPORAL_HOST: 10.10.0.20:7233
+      SB_CLICKHOUSE_HOST: 10.10.0.20
+      SB_CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      SB_CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      SB_PROXY__MODE: provider_api
+      SB_PROXY__API_ENDPOINT: ${SB_PROXY__API_ENDPOINT}
+      SB_PROXY__API_AUTH_HEADER: ${SB_PROXY__API_AUTH_HEADER}
+      SB_PROXY__API_AUTH_VALUE: ${SB_PROXY__API_AUTH_VALUE}
+      SB_PROXY__API_RESPONSE_PATH: ${SB_PROXY__API_RESPONSE_PATH}
+      SB_BROWSER__HEADLESS: "true"
+      SB_OBSERVABILITY__METRICS_PORT: "9091"
+      SENTRY_DSN: ${SENTRY_DSN}
+    deploy:
+      replicas: 8
+      resources:
+        limits:
+          memory: 2G
+          cpus: "1.5"
+    shm_size: 2gb  # playwright/patchright requiere /dev/shm grande
+    cap_add:
+      - SYS_ADMIN  # chrome sandbox
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.0
+    container_name: node-exporter
+    restart: unless-stopped
+    pid: host
+    network_mode: host
+    command:
+      - --path.rootfs=/host
+    volumes:
+      - /:/host:ro,rslave
