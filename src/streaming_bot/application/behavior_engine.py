@@ -23,6 +23,11 @@ from typing import TYPE_CHECKING
 from streaming_bot.application.persona_memory_delta import PersonaMemoryDelta
 from streaming_bot.domain.history import BehaviorEvent, BehaviorType
 from streaming_bot.domain.persona import Persona
+from streaming_bot.domain.ports.persona_memory_repo import (
+    IPersonaMemoryRepository,
+    PersonaMemoryEvent,
+    PersonaMemoryEventType,
+)
 
 if TYPE_CHECKING:
     from structlog.stdlib import BoundLogger
@@ -117,6 +122,7 @@ class HumanBehaviorEngine:
         rng_seed: int | None = None,
         logger: BoundLogger,
         now_factory: Callable[[], datetime] = _default_now,
+        memory_repo: IPersonaMemoryRepository | None = None,
     ) -> None:
         self._persona = persona
         self._session_id = session_id
@@ -125,6 +131,9 @@ class HumanBehaviorEngine:
         self._log = logger.bind(component="behavior_engine", account_id=persona.account_id)
         self._now = now_factory
         self._memory_delta = PersonaMemoryDelta()
+        # Sumidero opcional event-sourced. Si esta presente, cada `commit_memory_async`
+        # persiste el delta como log de eventos en la BD ademas de mutarlo en memoria.
+        self._memory_repo = memory_repo
 
     # ── Propiedades de inspeccion ─────────────────────────────────────────
     @property
@@ -760,3 +769,123 @@ class HumanBehaviorEngine:
         persistir via `IPersonaRepository.update_memory()`.
         """
         self._memory_delta.apply_to(persona)
+
+    async def commit_memory_async(self, persona: Persona) -> None:
+        """Aplica el delta in-memory y, si hay `memory_repo`, persiste eventos.
+
+        Es la version async preferida para sesiones reales. Mantiene
+        compatibilidad: si no se inyecto `memory_repo`, se comporta como
+        `apply_memory_to_persona` (efecto solo in-memory).
+        """
+        self.apply_memory_to_persona(persona)
+        if self._memory_repo is None:
+            return
+        events = self._delta_to_events(persona)
+        if not events:
+            return
+        await self._memory_repo.apply_delta(
+            persona_id=persona.account_id,
+            account_id=persona.account_id,
+            events=events,
+        )
+
+    def _delta_to_events(self, persona: Persona) -> list[PersonaMemoryEvent]:
+        """Convierte el delta acumulado en una lista de `PersonaMemoryEvent`.
+
+        Todos los eventos llevan el mismo `timestamp` (el `_now()` de la
+        sesion al commitear) ya que la API in-memory actual no preserva
+        timestamp por accion. El log queda bien ordenado por id (ULID) que
+        actua como tie-breaker estable.
+        """
+        ts = self._now()
+        persona_id = persona.account_id
+        account_id = persona.account_id
+        events: list[PersonaMemoryEvent] = []
+        delta = self._memory_delta
+
+        for uri in delta.liked_uris:
+            events.append(
+                PersonaMemoryEvent(
+                    persona_id=persona_id,
+                    account_id=account_id,
+                    event_type=PersonaMemoryEventType.LIKE,
+                    timestamp=ts,
+                    target_uri=uri,
+                )
+            )
+        for uri in delta.saved_uris:
+            events.append(
+                PersonaMemoryEvent(
+                    persona_id=persona_id,
+                    account_id=account_id,
+                    event_type=PersonaMemoryEventType.SAVE,
+                    timestamp=ts,
+                    target_uri=uri,
+                )
+            )
+        for uri in delta.added_to_playlist_uris:
+            events.append(
+                PersonaMemoryEvent(
+                    persona_id=persona_id,
+                    account_id=account_id,
+                    event_type=PersonaMemoryEventType.ADD_TO_PLAYLIST,
+                    timestamp=ts,
+                    target_uri=uri,
+                )
+            )
+        for uri in delta.queued_uris:
+            events.append(
+                PersonaMemoryEvent(
+                    persona_id=persona_id,
+                    account_id=account_id,
+                    event_type=PersonaMemoryEventType.ADD_TO_QUEUE,
+                    timestamp=ts,
+                    target_uri=uri,
+                )
+            )
+        for uri in delta.followed_artists:
+            events.append(
+                PersonaMemoryEvent(
+                    persona_id=persona_id,
+                    account_id=account_id,
+                    event_type=PersonaMemoryEventType.FOLLOW_ARTIST,
+                    timestamp=ts,
+                    target_uri=uri,
+                )
+            )
+        for uri in delta.visited_artists:
+            events.append(
+                PersonaMemoryEvent(
+                    persona_id=persona_id,
+                    account_id=account_id,
+                    event_type=PersonaMemoryEventType.VISIT_ARTIST,
+                    timestamp=ts,
+                    target_uri=uri,
+                )
+            )
+        for query in delta.searches:
+            events.append(
+                PersonaMemoryEvent(
+                    persona_id=persona_id,
+                    account_id=account_id,
+                    event_type=PersonaMemoryEventType.SEARCH,
+                    timestamp=ts,
+                    target_uri=None,
+                    metadata={"query": query},
+                )
+            )
+        if delta.streamed_minutes or delta.streams_counted:
+            events.append(
+                PersonaMemoryEvent(
+                    persona_id=persona_id,
+                    account_id=account_id,
+                    event_type=PersonaMemoryEventType.STREAM,
+                    timestamp=ts,
+                    target_uri=None,
+                    metadata={
+                        "minutes": int(delta.streamed_minutes),
+                        "counted": int(delta.streams_counted),
+                    },
+                )
+            )
+        return events

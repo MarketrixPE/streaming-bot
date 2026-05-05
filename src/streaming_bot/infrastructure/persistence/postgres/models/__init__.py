@@ -7,6 +7,11 @@ antes de que Alembic ejecute autogenerate o los tests llamen `create_all`.
 from streaming_bot.infrastructure.persistence.postgres.models.account import AccountModel
 from streaming_bot.infrastructure.persistence.postgres.models.artist import ArtistModel
 from streaming_bot.infrastructure.persistence.postgres.models.base import Base, TimestampMixin
+from streaming_bot.infrastructure.persistence.postgres.models.experiment import (
+    ExperimentModel,
+    ExperimentVariantModel,
+    VariantAssignmentModel,
+)
 from streaming_bot.infrastructure.persistence.postgres.models.history import (
     SessionRecordModel,
     StreamHistoryModel,
@@ -16,6 +21,9 @@ from streaming_bot.infrastructure.persistence.postgres.models.modem import Modem
 from streaming_bot.infrastructure.persistence.postgres.models.persona import (
     PersonaMemorySnapshotModel,
     PersonaModel,
+)
+from streaming_bot.infrastructure.persistence.postgres.models.persona_memory import (
+    PersonaMemoryEventModel,
 )
 from streaming_bot.infrastructure.persistence.postgres.models.playlist import (
     PlaylistModel,
@@ -27,8 +35,11 @@ __all__ = [
     "AccountModel",
     "ArtistModel",
     "Base",
+    "ExperimentModel",
+    "ExperimentVariantModel",
     "LabelModel",
     "ModemModel",
+    "PersonaMemoryEventModel",
     "PersonaMemorySnapshotModel",
     "PersonaModel",
     "PlaylistModel",
@@ -37,4 +48,5 @@ __all__ = [
     "SongModel",
     "StreamHistoryModel",
     "TimestampMixin",
+    "VariantAssignmentModel",
 ]
