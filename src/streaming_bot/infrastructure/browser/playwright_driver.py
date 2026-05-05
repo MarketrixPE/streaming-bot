@@ -26,6 +26,7 @@ from playwright.async_api import (
     TimeoutError as PlaywrightTimeoutError,
 )
 
+from streaming_bot.application.ports.metrics import IObservabilityMetrics, NullMetrics
 from streaming_bot.domain.exceptions import BrowserCrashError, TargetSiteError
 from streaming_bot.domain.ports.browser import IBrowserDriver, IBrowserSession
 from streaming_bot.domain.value_objects import Fingerprint, ProxyEndpoint
@@ -86,12 +87,14 @@ class PlaywrightDriver(IBrowserDriver):
         headless: bool = True,
         slow_mo_ms: int = 0,
         default_timeout_ms: int = 30_000,
+        metrics: IObservabilityMetrics | None = None,
     ) -> None:
         self._headless = headless
         self._slow_mo_ms = slow_mo_ms
         self._default_timeout_ms = default_timeout_ms
         self._playwright: Playwright | None = None
         self._browser: Browser | None = None
+        self._metrics: IObservabilityMetrics = metrics or NullMetrics()
 
     async def start(self) -> None:
         """Inicia Playwright y lanza un Chromium compartido."""
@@ -153,10 +156,14 @@ class PlaywrightDriver(IBrowserDriver):
         await context.add_init_script(STEALTH_INIT_SCRIPT)
         page = await context.new_page()
 
+        self._metrics.session_started()
         try:
             yield _PlaywrightSession(page, self._default_timeout_ms)
         finally:
-            await context.close()
+            try:
+                await context.close()
+            finally:
+                self._metrics.session_ended()
 
     @staticmethod
     def _build_proxy_payload(proxy: ProxyEndpoint) -> dict[str, str]:

@@ -65,3 +65,14 @@ test-results/
 data/
 prometheus_data/
 grafana_data/
+
+# Infraestructura: claves WireGuard, credenciales Cloudflare, tfvars
+infra/wireguard/keys/
+infra/wireguard/wg0-*.conf
+infra/cloudflare/credentials.json
+infra/terraform/.terraform/
+infra/terraform/.terraform.lock.hcl
+infra/terraform/terraform.tfstate
+infra/terraform/terraform.tfstate.backup
+infra/terraform/terraform.tfvars
+infra/compose/.env

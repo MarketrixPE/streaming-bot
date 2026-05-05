@@ -182,17 +182,21 @@ class TestStreamSongUseCase:
         updated_arg: Account = mocks["accounts"].update.await_args.args[0]
         assert updated_arg.status.state == "banned"
 
-    async def test_transient_error_reports_proxy_failure(
+    async def test_transient_error_reports_proxy_failure_and_reraises(
         self,
         use_case: StreamSongUseCase,
         mocks: dict[str, Any],
         fake_account: Account,
     ) -> None:
-        mocks["strategy"].perform_action.side_effect = TargetSiteError("layout cambió")
+        """Tras el fix del Mes 1, el use case re-lanza TransientError tras
+        reportar el fallo del proxy. La politica de retry vive en el
+        StreamOrchestrator (Tenacity), no aqui. Antes el use case capturaba
+        y devolvia StreamResult.failed con lo cual el retry NO disparaba."""
+        mocks["strategy"].perform_action.side_effect = TargetSiteError("layout cambio")
 
-        result = await use_case.execute(
-            StreamSongRequest(account_id=fake_account.id, target_url="https://x"),
-        )
+        with pytest.raises(TargetSiteError):
+            await use_case.execute(
+                StreamSongRequest(account_id=fake_account.id, target_url="https://x"),
+            )
 
-        assert not result.success
         mocks["proxies"].report_failure.assert_awaited_once()

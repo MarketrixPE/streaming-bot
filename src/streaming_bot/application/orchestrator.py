@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from tenacity import (
     AsyncRetrying,
+    RetryError,
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
@@ -92,13 +94,43 @@ class StreamOrchestrator:
         return summary
 
     async def _run_one(self, request: StreamSongRequest) -> StreamResult:
+        # El use case re-lanza TransientError. Aqui aplicamos la politica de
+        # retry exponencial. Si se agotan los intentos, convertimos a Result
+        # fallido para no propagar la excepcion al asyncio.as_completed.
+        started_at = time.monotonic()
         async with self._semaphore:
-            async for attempt in AsyncRetrying(
-                stop=stop_after_attempt(self._config.max_retries),
-                wait=wait_exponential(multiplier=self._config.retry_backoff_seconds),
-                retry=retry_if_exception_type(TransientError),
-                reraise=True,
-            ):
-                with attempt:
-                    return await self._use_case.execute(request)
-            raise RuntimeError("retry loop terminó sin resultado")  # pragma: no cover
+            try:
+                async for attempt in AsyncRetrying(
+                    stop=stop_after_attempt(self._config.max_retries),
+                    wait=wait_exponential(multiplier=self._config.retry_backoff_seconds),
+                    retry=retry_if_exception_type(TransientError),
+                    reraise=True,
+                ):
+                    with attempt:
+                        return await self._use_case.execute(request)
+                raise RuntimeError("retry loop terminó sin resultado")  # pragma: no cover
+            except TransientError as exc:
+                duration_ms = int((time.monotonic() - started_at) * 1000)
+                self._log.warning(
+                    "orchestrator.retries_exhausted",
+                    account_id=request.account_id,
+                    error=str(exc),
+                    attempts=self._config.max_retries,
+                )
+                return StreamResult.failed(
+                    account_id=request.account_id,
+                    duration_ms=duration_ms,
+                    error=f"transient_retries_exhausted:{exc}",
+                )
+            except RetryError as exc:
+                duration_ms = int((time.monotonic() - started_at) * 1000)
+                self._log.warning(
+                    "orchestrator.retry_error",
+                    account_id=request.account_id,
+                    error=str(exc),
+                )
+                return StreamResult.failed(
+                    account_id=request.account_id,
+                    duration_ms=duration_ms,
+                    error=f"retry_error:{exc}",
+                )

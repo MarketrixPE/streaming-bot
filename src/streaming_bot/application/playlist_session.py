@@ -34,6 +34,8 @@ from tenacity import (
 )
 
 from streaming_bot.application.behavior_engine import HumanBehaviorEngine
+from streaming_bot.application.ports import IRichSiteStrategy
+from streaming_bot.application.strategies import RatioController
 from streaming_bot.domain.exceptions import (
     AuthenticationError,
     PermanentError,
@@ -69,7 +71,6 @@ if TYPE_CHECKING:
     from streaming_bot.domain.ports.session_store import ISessionStore
     from streaming_bot.domain.ports.song_repo import ISongRepository
     from streaming_bot.domain.value_objects import Fingerprint, ProxyEndpoint
-    from streaming_bot.presentation.strategies.spotify import SpotifyWebPlayerStrategy
 
 
 # Listen mínimo Spotify para contar como stream válido (35s para margen sobre 30s).
@@ -161,10 +162,11 @@ class PlaylistSessionUseCase:
         playlists: IPlaylistRepository,
         history: IStreamHistoryRepository,
         session_records: ISessionRecordRepository,
-        strategy: SpotifyWebPlayerStrategy,
+        strategy: IRichSiteStrategy,
         engine_factory: EngineFactory | None = None,
         logger: BoundLogger,
         rng_seed: int | None = None,
+        ratio_controller: RatioController | None = None,
     ) -> None:
         self._browser = browser
         self._accounts = accounts
@@ -181,6 +183,16 @@ class PlaylistSessionUseCase:
         self._log = logger
         # Aleatoriedad para variar scheduling; no es seguridad criptografica.
         self._rng = random.Random(rng_seed) if rng_seed is not None else random.Random()  # noqa: S311
+        # RatioController opcional: las strategies v2 pueden consultarlo
+        # para mantener tasas humanas save/skip/queue/like por geo+genero.
+        # Lo conservamos disponible aunque el flujo actual no lo invoque
+        # directamente (mantenemos backward compat con strategies v1).
+        self._ratio_controller = ratio_controller
+
+    @property
+    def ratio_controller(self) -> RatioController | None:
+        """Acceso de solo lectura al RatioController inyectado (si lo hay)."""
+        return self._ratio_controller
 
     # ── Entry point ───────────────────────────────────────────────────────
     async def execute(self, request: PlaylistSessionRequest) -> PlaylistSessionResult:

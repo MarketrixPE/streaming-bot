@@ -58,7 +58,24 @@ def test_no_proxy_uses_fallback(gen: CoherentFingerprintGenerator) -> None:
 
 
 def test_user_agents_are_modern(gen: CoherentFingerprintGenerator) -> None:
-    """Anti-regresión: el bot original usaba Chrome 94 (obsoleto)."""
-    fp = gen.coherent_for(None)
-    assert "Chrome/94" not in fp.user_agent
-    assert any(modern in fp.user_agent for modern in ["Chrome/130", "Firefox/130", "Version/18"])
+    """Anti-regresion: el bot original usaba Chrome 94 (obsoleto).
+
+    Tras el refactor del Mes 1 el pool por OS incluye Chrome 129-131 + Firefox
+    130-131 + Safari 18.0/18.1 (refrescable trimestralmente). Cualquiera de
+    esos cuenta como "moderno" siempre que NO sea Chrome/94.
+    """
+    samples = [gen.coherent_for(None) for _ in range(50)]
+    modern_tokens = (
+        "Chrome/129",
+        "Chrome/130",
+        "Chrome/131",
+        "Firefox/130",
+        "Firefox/131",
+        "Version/18.0",
+        "Version/18.1",
+    )
+    for fp in samples:
+        assert "Chrome/94" not in fp.user_agent
+        assert any(token in fp.user_agent for token in modern_tokens), (
+            f"UA fuera del pool moderno: {fp.user_agent}"
+        )

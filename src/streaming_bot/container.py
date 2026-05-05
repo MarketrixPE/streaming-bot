@@ -59,7 +59,12 @@ from streaming_bot.infrastructure.persistence.postgres.repos import (
     PostgresLabelRepository,
     PostgresSongRepository,
 )
-from streaming_bot.infrastructure.proxies import NoProxyProvider, StaticFileProxyProvider
+from streaming_bot.infrastructure.proxies import (
+    ApiProxyProvider,
+    ApiProxyProviderConfig,
+    NoProxyProvider,
+    StaticFileProxyProvider,
+)
 from streaming_bot.infrastructure.repos import EncryptedAccountRepository, FileSessionStore
 
 
@@ -81,12 +86,14 @@ class LegacyContainer:
             level=settings.observability.log_level,
             fmt=settings.observability.log_format,
         )
+        metrics = Metrics()
         return cls(
             settings=settings,
             browser=PlaywrightDriver(
                 headless=settings.browser.headless,
                 slow_mo_ms=settings.browser.slow_mo_ms,
                 default_timeout_ms=settings.browser.default_timeout_ms,
+                metrics=metrics,
             ),
             accounts=EncryptedAccountRepository(
                 path=settings.storage.accounts_path,
@@ -101,7 +108,7 @@ class LegacyContainer:
                 viewport_width=settings.browser.viewport_width,
                 viewport_height=settings.browser.viewport_height,
             ),
-            metrics=Metrics(),
+            metrics=metrics,
         )
 
     def make_orchestrator(self, strategy: ISiteStrategy) -> StreamOrchestrator:
@@ -114,6 +121,7 @@ class LegacyContainer:
             sessions=self.sessions,
             strategy=strategy,
             logger=get_logger("streaming_bot.use_case"),
+            metrics=self.metrics,
         )
         return StreamOrchestrator(
             use_case=use_case,
@@ -315,15 +323,100 @@ class ProductionContainer:
             config=config,
         )
 
+    def make_api_dependencies(self) -> ApiDependencies:
+        """Wrapper inyectable en routers FastAPI.
+
+        Aglutina factories de repos para que los handlers HTTP consuman
+        siempre la misma instancia del container y compartan la sesion
+        transaccional abierta por la dependencia ``get_session``.
+        """
+        return ApiDependencies(container=self)
+
     async def dispose(self) -> None:
         """Libera recursos asincronos (engine de SQLAlchemy)."""
         await self.engine.dispose()
 
 
+@dataclass(slots=True)
+class ApiDependencies:
+    """Bundle de factories que la capa API consume.
+
+    Existe para que la capa ``presentation/api`` no importe directamente
+    repos ni clientes concretos: depende exclusivamente de este wrapper,
+    inyectado via dependencia FastAPI. Las factories devuelven puertos
+    de dominio para mantener inversion de dependencias.
+    """
+
+    container: ProductionContainer
+
+    @property
+    def settings(self) -> Settings:
+        return self.container.settings
+
+    def session_scope(self) -> AbstractAsyncContextManager[AsyncSession]:
+        return self.container.session_scope()
+
+    def make_account_repository(self, session: AsyncSession) -> IAccountRepository:
+        return self.container.make_account_repository(session)
+
+    def make_artist_repository(self, session: AsyncSession) -> IArtistRepository:
+        return self.container.make_artist_repository(session)
+
+    def make_label_repository(self, session: AsyncSession) -> ILabelRepository:
+        return self.container.make_label_repository(session)
+
+    def make_song_repository(self, session: AsyncSession) -> ISongRepository:
+        return self.container.make_song_repository(session)
+
+    def make_session_record_repository(self, session: AsyncSession) -> Any:
+        from streaming_bot.infrastructure.persistence.postgres.repos import (  # noqa: PLC0415
+            PostgresSessionRecordRepository,
+        )
+
+        return PostgresSessionRecordRepository(session)
+
+    def make_stream_history_repository(self, session: AsyncSession) -> Any:
+        from streaming_bot.infrastructure.persistence.postgres.repos import (  # noqa: PLC0415
+            PostgresStreamHistoryRepository,
+        )
+
+        return PostgresStreamHistoryRepository(session)
+
+
 def _build_proxy_provider(settings: Settings) -> IProxyProvider:
+    """Cabreado del proxy provider segun ProxyMode.
+
+    - STATIC_FILE: lee desde archivo de texto.
+    - PROVIDER_API: adapter generico HTTP (Bright Data, Oxylabs, Smartproxy,
+        IPRoyal, ProxyEmpire, NetNut, SOAX). Si falta endpoint o auth, falla
+        de forma loud y temprana (mejor que silenciosamente caer a NoProxy).
+    - NONE / fallback: NoProxyProvider (modo direct).
+    """
     if settings.proxy.mode == ProxyMode.STATIC_FILE:
         return StaticFileProxyProvider(
             path=settings.proxy.file_path,
             healthcheck_url=settings.proxy.healthcheck_url,
         )
+    if settings.proxy.mode == ProxyMode.PROVIDER_API:
+        if not settings.proxy.api_endpoint:
+            msg = (
+                "proxy.mode=provider_api requiere SB_PROXY__API_ENDPOINT configurado "
+                "(ej. https://api.smartproxy.com/v1/get?country=${country})"
+            )
+            raise RuntimeError(msg)
+        headers: tuple[tuple[str, str], ...] = ()
+        if settings.proxy.api_auth_header and settings.proxy.api_auth_value:
+            headers = ((settings.proxy.api_auth_header, settings.proxy.api_auth_value),)
+        config = ApiProxyProviderConfig(
+            endpoint=settings.proxy.api_endpoint,
+            headers=headers,
+            response_path=settings.proxy.api_response_path,
+            default_scheme=settings.proxy.api_default_scheme,
+            cost_per_request_cents=settings.proxy.api_cost_per_request_cents,
+            cache_ttl_seconds=settings.proxy.api_cache_ttl_seconds,
+            quarantine_seconds=settings.proxy.api_quarantine_seconds,
+            max_pool_size_per_country=settings.proxy.api_max_pool_size_per_country,
+            request_timeout_seconds=settings.proxy.api_request_timeout_seconds,
+        )
+        return ApiProxyProvider(config)
     return NoProxyProvider()

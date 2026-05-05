@@ -1,19 +1,23 @@
 """Caso de uso: ejecutar un stream contra un sitio objetivo.
 
-Diseño:
-- Recibe puertos por constructor (Inversión de Dependencias).
+Diseno:
+- Recibe puertos por constructor (Inversion de Dependencias).
 - No conoce Playwright, Spotify, Selenium, requests, etc.
 - Las particularidades del sitio (selectores, flujo de login) se inyectan
-  vía un objeto de estrategia que el caso de uso recibe.
+  via un objeto de estrategia que el caso de uso recibe.
+- IObservabilityMetrics es opcional: en tests usamos NullMetrics.
+- TransientError se RE-LANZA (no se captura): la politica de retry vive
+  en StreamOrchestrator (Tenacity AsyncRetrying).
 """
 
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
-from streaming_bot.domain.entities import Account
+from streaming_bot.application.ports.metrics import IObservabilityMetrics, NullMetrics
+from streaming_bot.application.ports.site_strategy import ISiteStrategy
 from streaming_bot.domain.exceptions import (
     AuthenticationError,
     PermanentError,
@@ -22,7 +26,6 @@ from streaming_bot.domain.exceptions import (
 from streaming_bot.domain.ports import (
     IAccountRepository,
     IBrowserDriver,
-    IBrowserSession,
     IFingerprintGenerator,
     IProxyProvider,
     ISessionStore,
@@ -32,22 +35,10 @@ from streaming_bot.domain.value_objects import StreamResult
 if TYPE_CHECKING:
     from structlog.stdlib import BoundLogger
 
-
-class ISiteStrategy(Protocol):
-    """Estrategia específica del sitio objetivo. Cumple OCP: nuevos sitios
-    se añaden creando una nueva estrategia, sin modificar el caso de uso.
-    """
-
-    async def is_logged_in(self, page: IBrowserSession) -> bool: ...
-
-    async def login(self, page: IBrowserSession, account: Account) -> None: ...
-
-    async def perform_action(
-        self,
-        page: IBrowserSession,
-        target_url: str,
-        listen_seconds: int,
-    ) -> None: ...
+# Re-export ISiteStrategy para retrocompatibilidad con callers que ya hacen
+# `from streaming_bot.application.stream_song import ISiteStrategy`. La
+# definicion canonica vive ahora en application/ports/site_strategy.py.
+__all__ = ["ISiteStrategy", "StreamSongRequest", "StreamSongUseCase"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,16 +50,16 @@ class StreamSongRequest:
 
 
 class StreamSongUseCase:
-    """Orquesta un único stream para una cuenta.
+    """Orquesta un unico stream para una cuenta.
 
     Flujo:
     1. Adquirir proxy coherente con la cuenta.
     2. Generar fingerprint coherente.
     3. Cargar storage_state si existe.
-    4. Abrir sesión browser.
-    5. Si no logueado → login → guardar state.
-    6. Ejecutar acción del sitio.
-    7. Reportar métricas + retornar Result.
+    4. Abrir sesion browser.
+    5. Si no logueado: login, guardar state.
+    6. Ejecutar accion del sitio.
+    7. Reportar metricas y retornar Result.
     """
 
     def __init__(
@@ -81,6 +72,7 @@ class StreamSongUseCase:
         sessions: ISessionStore,
         strategy: ISiteStrategy,
         logger: BoundLogger,
+        metrics: IObservabilityMetrics | None = None,
     ) -> None:
         self._browser = browser
         self._accounts = accounts
@@ -89,6 +81,7 @@ class StreamSongUseCase:
         self._sessions = sessions
         self._strategy = strategy
         self._log = logger
+        self._metrics: IObservabilityMetrics = metrics or NullMetrics()
 
     async def execute(self, request: StreamSongRequest) -> StreamResult:
         started_at = time.monotonic()
@@ -106,12 +99,14 @@ class StreamSongUseCase:
         proxy = await self._proxies.acquire(country=account.country)
         fingerprint = self._fingerprints.coherent_for(proxy, fallback_country=account.country)
         storage_state = await self._sessions.load(account.id)
+        country_label = fingerprint.country.value
 
         log = log.bind(
             proxy=proxy.as_url() if proxy else "direct",
             tz=fingerprint.timezone_id,
             locale=fingerprint.locale,
             cached_session=storage_state is not None,
+            country=country_label,
         )
 
         try:
@@ -137,16 +132,29 @@ class StreamSongUseCase:
             if proxy is not None:
                 await self._proxies.report_success(proxy)
 
-            duration_ms = int((time.monotonic() - started_at) * 1000)
+            duration_seconds = time.monotonic() - started_at
+            duration_ms = int(duration_seconds * 1000)
             log.info("stream.completed", duration_ms=duration_ms)
+            self._metrics.record_stream(
+                country=country_label,
+                success=True,
+                duration_seconds=duration_seconds,
+            )
             return StreamResult.ok(account_id=account.id, duration_ms=duration_ms)
 
         except AuthenticationError as exc:
             account.deactivate(reason=str(exc))
             await self._accounts.update(account)
             await self._sessions.delete(account.id)
-            duration_ms = int((time.monotonic() - started_at) * 1000)
+            duration_seconds = time.monotonic() - started_at
+            duration_ms = int(duration_seconds * 1000)
             log.exception("auth.failed", error=str(exc))
+            self._metrics.record_stream(
+                country=country_label,
+                success=False,
+                duration_seconds=duration_seconds,
+            )
+            self._metrics.increment_account_blocked()
             return StreamResult.failed(
                 account_id=account.id,
                 duration_ms=duration_ms,
@@ -154,8 +162,14 @@ class StreamSongUseCase:
             )
 
         except PermanentError as exc:
-            duration_ms = int((time.monotonic() - started_at) * 1000)
+            duration_seconds = time.monotonic() - started_at
+            duration_ms = int(duration_seconds * 1000)
             log.exception("stream.permanent_failure", error=str(exc))
+            self._metrics.record_stream(
+                country=country_label,
+                success=False,
+                duration_seconds=duration_seconds,
+            )
             return StreamResult.failed(
                 account_id=account.id,
                 duration_ms=duration_ms,
@@ -163,12 +177,19 @@ class StreamSongUseCase:
             )
 
         except TransientError as exc:
+            # Reportamos al pool y re-lanzamos: la POLITICA de retry es del
+            # StreamOrchestrator (Tenacity AsyncRetrying con backoff exponencial),
+            # no del use case. Si capturasemos aqui, el retry nunca dispararia
+            # (auditoria seccion 1: retry roto).
             if proxy is not None:
                 await self._proxies.report_failure(proxy, reason=str(exc))
-            duration_ms = int((time.monotonic() - started_at) * 1000)
-            log.exception("stream.transient_failure", error=str(exc))
-            return StreamResult.failed(
-                account_id=account.id,
-                duration_ms=duration_ms,
-                error=str(exc),
+                self._metrics.increment_proxy_failure()
+            duration_seconds = time.monotonic() - started_at
+            duration_ms = int(duration_seconds * 1000)
+            log.exception("stream.transient_failure", error=str(exc), duration_ms=duration_ms)
+            self._metrics.record_stream(
+                country=country_label,
+                success=False,
+                duration_seconds=duration_seconds,
             )
+            raise

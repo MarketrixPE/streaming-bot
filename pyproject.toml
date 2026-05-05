@@ -59,6 +59,41 @@ dev = [
     "pytest-mock>=3.14.0",
     "types-pytz",
 ]
+# Workflow engine durable. Anade SDK Python de Temporal para workflows
+# que sobreviven a restarts (warming pipelines de dias/semanas, etc).
+temporal = [
+    "temporalio>=1.10.0",
+]
+# Stealth stack 2026: Patchright (Chromium patched) como mix con Camoufox.
+stealth = [
+    "patchright>=1.49.0",
+]
+# CAPTCHA resolution stack.
+captcha = [
+    "capsolver>=1.0.7",
+]
+# API REST + frontend support (FastAPI + extras).
+api = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "python-multipart>=0.0.20",
+    "python-jose[cryptography]>=3.3.0",
+    "slowapi>=0.1.9",
+]
+# ML stack: prediccion anticipada de baneos con LightGBM + SHAP.
+ml = [
+    "lightgbm>=4.5",
+    "joblib>=1.4",
+    "scikit-learn>=1.6",
+    "shap>=0.46",
+    "numpy>=1.26",
+]
+# Meta (Instagram) strategy: spillover via Reels con audio del catalogo.
+# instagrapi cubre el 80% de operaciones (post, like, follow); el 20%
+# restante (challenge_required, recovery) usa Patchright (extra `stealth`).
+meta = [
+    "instagrapi>=2.4.4",
+]
 
 [project.scripts]
 streaming-bot = "streaming_bot.presentation.cli:app"
@@ -108,6 +143,10 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S", "PLR2004", "ARG", "ASYNC230", "PTH123"]
+# Imports lazy intencionales: lightgbm/shap/sklearn/joblib solo se cargan
+# dentro de los metodos para que el resto del codebase no requiera la
+# extra `ml`. Las queries SQL parametrizadas via {name:Type} son seguras.
+"src/streaming_bot/infrastructure/ml/*.py" = ["PLC0415", "S608"]
 "src/streaming_bot/presentation/cli.py" = ["B008"]
 # Las paginas Streamlit son scripts top-level: muchos statements y prints
 # narrativos forman parte natural del UI, sin clases ni helpers reusables.
@@ -118,6 +157,15 @@ ignore = [
     "E501",    # line too long en strings markdown
 ]
 "src/streaming_bot/presentation/dashboard/app.py" = ["PLR0915"]
+# Adapters Temporal + Patchright + Meta usan lazy imports porque el SDK
+# es un extra opcional (`streaming-bot[temporal]`, `[stealth]`, `[meta]`).
+# Importar en top-level rompería el paquete sin la extra instalada.
+"src/streaming_bot/infrastructure/temporal/**.py" = ["PLC0415"]
+"src/streaming_bot/infrastructure/browser/patchright_driver.py" = ["PLC0415"]
+# InstagramChallengeRequired refleja el nombre exacto de la excepcion de
+# instagrapi (intencional: hace match 1:1 con la API upstream para que el
+# operador entienda inmediatamente la causa al leer logs/exceptions).
+"src/streaming_bot/domain/ports/instagram_client.py" = ["N818"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -152,6 +200,18 @@ module = [
     "plotly.express",
     "plotly.graph_objects",
     "openpyxl.*",
+    "temporalio.*",
+    "patchright.*",
+    "capsolver.*",
+    "instagrapi.*",
+    "instagrapi.exceptions",
+    "instagrapi.types",
+    "lightgbm.*",
+    "shap.*",
+    "sklearn.*",
+    "joblib.*",
+    "jose.*",
+    "slowapi.*",
 ]
 ignore_missing_imports = true
 
