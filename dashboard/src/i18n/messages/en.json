@@ -1,0 +1,169 @@
+{
+  "app": {
+    "name": "Streaming Control",
+    "tagline": "Real-time operations panel"
+  },
+  "nav": {
+    "overview": "Overview",
+    "catalog": "Catalog",
+    "accounts": "Accounts",
+    "jobs": "Jobs",
+    "anomaly": "Anomalies"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Continue",
+    "subtitle": "Restricted access for the ops team"
+  },
+  "overview": {
+    "title": "Overview",
+    "subtitle": "Live system summary",
+    "kpi": {
+      "streams24h": "Streams (24h)",
+      "activeAccounts": "Active accounts",
+      "costPerStream": "Cost / stream",
+      "revenue7d": "Revenue (7d)"
+    },
+    "map": {
+      "title": "Live activity",
+      "subtitle": "Recent events by geolocation"
+    },
+    "byDsp": {
+      "title": "Streams per DSP",
+      "subtitle": "Last 24 hours, hourly"
+    }
+  },
+  "catalog": {
+    "title": "Catalog",
+    "subtitle": "Managed tracks and performance",
+    "filters": {
+      "dsp": "DSP",
+      "tier": "Tier",
+      "distributor": "Distributor",
+      "status": "Status",
+      "reset": "Reset"
+    },
+    "columns": {
+      "cover": "Cover",
+      "title": "Title",
+      "artist": "Artist",
+      "distros": "Distributors",
+      "plays30d": "Plays (30d)",
+      "saveRate": "Save rate",
+      "skipRate": "Skip rate",
+      "tier": "Tier",
+      "status": "Status"
+    },
+    "empty": "No tracks match the selected filters"
+  },
+  "accounts": {
+    "title": "Accounts",
+    "subtitle": "Health and status by region",
+    "heatmap": "Geo x status breakdown",
+    "list": "Active accounts",
+    "filters": {
+      "country": "Country",
+      "tier": "Tier"
+    },
+    "healthScore": "Health",
+    "lastAction": "Last action",
+    "status": {
+      "active": "Active",
+      "quarantined": "Quarantined",
+      "banned": "Banned",
+      "warming": "Warming"
+    }
+  },
+  "jobs": {
+    "title": "Jobs",
+    "subtitle": "Live Temporal queue",
+    "queue": "Current queue",
+    "inProgress": "In progress",
+    "columns": {
+      "id": "ID",
+      "workflow": "Workflow",
+      "worker": "Worker",
+      "progress": "Progress",
+      "eta": "ETA",
+      "startedAt": "Started"
+    },
+    "status": {
+      "running": "Running",
+      "pending": "Pending",
+      "completed": "Completed",
+      "failed": "Failed"
+    }
+  },
+  "anomaly": {
+    "title": "Anomalies",
+    "subtitle": "Live detection with SHAP explainability",
+    "active": "Active alerts",
+    "selectAlert": "Select an alert",
+    "severity": {
+      "LOW": "Low",
+      "MEDIUM": "Medium",
+      "HIGH": "High",
+      "CRITICAL": "Critical"
+    },
+    "status": {
+      "active": "Active",
+      "acknowledged": "Acknowledged",
+      "snoozed": "Snoozed",
+      "retired": "Retired"
+    },
+    "summary": {
+      "active": "Active",
+      "clusters": "Clusters",
+      "filtered": "{filtered} of {total} alerts"
+    },
+    "cluster": {
+      "title": "Cluster",
+      "alerts": "alerts",
+      "lastSeen": "Last seen",
+      "criticalCount": "{count} critical",
+      "highCount": "{count} high",
+      "openDetail": "Open detail",
+      "clear": "Clear selection",
+      "alertsHeading": "Alerts in cluster ({count})"
+    },
+    "alert": {
+      "ack": "Acknowledge",
+      "snooze": "Snooze",
+      "retire": "Retire account",
+      "score": "Score",
+      "metric": "Metric",
+      "detectedAt": "Detected",
+      "trend": "24h trend"
+    },
+    "feature": {
+      "title": "Top features (SHAP)",
+      "subtitle": "Contribution to score",
+      "impact": "Impact",
+      "empty": "No contributions available"
+    },
+    "timelineKind": {
+      "detected": "Detected",
+      "score_updated": "Score updated",
+      "acknowledged": "Acknowledged",
+      "snoozed": "Snoozed",
+      "retired": "Retired",
+      "note": "Note"
+    },
+    "metric": "Affected metric",
+    "timeline": "Timeline",
+    "emptyDetail": "No alert selected",
+    "emptyClusters": "No clusters match the selected filters",
+    "emptyAlerts": "No alerts in cluster"
+  },
+  "common": {
+    "loading": "Loading",
+    "retry": "Retry",
+    "error": "Something went wrong",
+    "all": "All",
+    "search": "Search",
+    "notAvailable": "N/A",
+    "logout": "Sign out"
+  }
+}

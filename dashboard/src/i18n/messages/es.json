@@ -1,0 +1,169 @@
+{
+  "app": {
+    "name": "Streaming Control",
+    "tagline": "Panel operativo en tiempo real"
+  },
+  "nav": {
+    "overview": "Overview",
+    "catalog": "Catálogo",
+    "accounts": "Cuentas",
+    "jobs": "Jobs",
+    "anomaly": "Anomalías"
+  },
+  "auth": {
+    "signIn": "Iniciar sesión",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "submit": "Entrar",
+    "subtitle": "Acceso restringido al equipo operativo"
+  },
+  "overview": {
+    "title": "Overview",
+    "subtitle": "Resumen en vivo del sistema",
+    "kpi": {
+      "streams24h": "Streams (24h)",
+      "activeAccounts": "Cuentas activas",
+      "costPerStream": "Coste / stream",
+      "revenue7d": "Ingresos (7 días)"
+    },
+    "map": {
+      "title": "Actividad en vivo",
+      "subtitle": "Eventos recientes por geolocalización"
+    },
+    "byDsp": {
+      "title": "Streams por DSP",
+      "subtitle": "Últimas 24 horas, por hora"
+    }
+  },
+  "catalog": {
+    "title": "Catálogo",
+    "subtitle": "Tracks administrados y performance",
+    "filters": {
+      "dsp": "DSP",
+      "tier": "Tier",
+      "distributor": "Distribuidor",
+      "status": "Status",
+      "reset": "Limpiar"
+    },
+    "columns": {
+      "cover": "Cover",
+      "title": "Título",
+      "artist": "Artista",
+      "distros": "Distribuidores",
+      "plays30d": "Plays (30d)",
+      "saveRate": "Save rate",
+      "skipRate": "Skip rate",
+      "tier": "Tier",
+      "status": "Status"
+    },
+    "empty": "Sin tracks para los filtros seleccionados"
+  },
+  "accounts": {
+    "title": "Cuentas",
+    "subtitle": "Salud y estado por región",
+    "heatmap": "Distribución geo × estado",
+    "list": "Cuentas activas",
+    "filters": {
+      "country": "País",
+      "tier": "Tier"
+    },
+    "healthScore": "Health",
+    "lastAction": "Última acción",
+    "status": {
+      "active": "Active",
+      "quarantined": "Quarantined",
+      "banned": "Banned",
+      "warming": "Warming"
+    }
+  },
+  "jobs": {
+    "title": "Jobs",
+    "subtitle": "Cola Temporal en tiempo real",
+    "queue": "Cola actual",
+    "inProgress": "En ejecución",
+    "columns": {
+      "id": "ID",
+      "workflow": "Workflow",
+      "worker": "Worker",
+      "progress": "Progreso",
+      "eta": "ETA",
+      "startedAt": "Iniciado"
+    },
+    "status": {
+      "running": "Running",
+      "pending": "Pending",
+      "completed": "Completed",
+      "failed": "Failed"
+    }
+  },
+  "anomaly": {
+    "title": "Anomalías",
+    "subtitle": "Detección en vivo con SHAP explainability",
+    "active": "Alertas activas",
+    "selectAlert": "Selecciona una alerta",
+    "severity": {
+      "LOW": "Low",
+      "MEDIUM": "Medium",
+      "HIGH": "High",
+      "CRITICAL": "Critical"
+    },
+    "status": {
+      "active": "Activa",
+      "acknowledged": "Reconocida",
+      "snoozed": "Silenciada",
+      "retired": "Retirada"
+    },
+    "summary": {
+      "active": "Activas",
+      "clusters": "Clusters",
+      "filtered": "{filtered} de {total} alertas"
+    },
+    "cluster": {
+      "title": "Cluster",
+      "alerts": "alertas",
+      "lastSeen": "Última señal",
+      "criticalCount": "{count} críticas",
+      "highCount": "{count} altas",
+      "openDetail": "Ver detalle",
+      "clear": "Quitar selección",
+      "alertsHeading": "Alertas del cluster ({count})"
+    },
+    "alert": {
+      "ack": "Reconocer",
+      "snooze": "Silenciar",
+      "retire": "Retirar cuenta",
+      "score": "Score",
+      "metric": "Métrica",
+      "detectedAt": "Detectada",
+      "trend": "Tendencia 24h"
+    },
+    "feature": {
+      "title": "Top features (SHAP)",
+      "subtitle": "Aporte al score",
+      "impact": "Impacto",
+      "empty": "Sin contribuciones disponibles"
+    },
+    "timelineKind": {
+      "detected": "Detectada",
+      "score_updated": "Score actualizado",
+      "acknowledged": "Reconocida",
+      "snoozed": "Silenciada",
+      "retired": "Retirada",
+      "note": "Nota"
+    },
+    "metric": "Métrica afectada",
+    "timeline": "Timeline",
+    "emptyDetail": "Sin alerta seleccionada",
+    "emptyClusters": "Sin clusters para los filtros seleccionados",
+    "emptyAlerts": "Sin alertas en el cluster"
+  },
+  "common": {
+    "loading": "Cargando",
+    "retry": "Reintentar",
+    "error": "Se produjo un error",
+    "all": "Todos",
+    "search": "Buscar",
+    "notAvailable": "N/D",
+    "logout": "Cerrar sesión"
+  }
+}
