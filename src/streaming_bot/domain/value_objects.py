@@ -63,6 +63,12 @@ class Country(str, Enum):
     JP = "JP"
     AU = "AU"
     NZ = "NZ"
+    # Asia: mercados objetivo Q2 2026 (router asiatico: JioSaavn / KKBox / NetEase).
+    IN = "IN"  # India: mercado de volumen (JioSaavn)
+    TW = "TW"  # Taiwan (KKBox)
+    HK = "HK"  # Hong Kong (KKBox)
+    CN = "CN"  # China continental (NetEase, requiere proxy CN)
+    KR = "KR"  # Corea del Sur (KKBox fallback)
 
     # Otros
     CA = "CA"
